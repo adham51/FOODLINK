@@ -1,0 +1,78 @@
+version: '3.8'
+
+services:
+# MySQL Database container with environment variables for configuration
+  db:
+    image: mysql:8.0
+    container_name: mysql_db
+    ports:
+      - "3306:3306"
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+      MYSQL_DATABASE: ${MYSQL_DATABASE}
+      MYSQL_USER: ${MYSQL_USER}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD}
+    volumes:
+      - db_data:/var/lib/mysql
+    networks:
+      - sql_net
+# PHPMyAdmin for DB management, accessible on port 8080
+  phpmyadmin:
+    image: phpmyadmin/phpmyadmin
+    container_name: phpmyadmin
+    restart: unless-stopped
+    ports:
+      - "8080:80"
+    environment:
+      PMA_HOST: ${DB_HOST}
+    depends_on:
+      - db
+    networks:
+      - sql_net
+# BACKEND CONTAINER with DB connection using environment variables from .env file
+  backend:
+    build: ./backend
+    container_name: backend
+    restart: unless-stopped
+    env_file:
+      - ./.env
+    expose:
+      - "3003"
+    depends_on:
+      - db
+    networks:
+      - sql_net
+      
+# FRONTEND CONTAINER SERVED STATICALLY BY NGINX so it listens on 80 for HTTP and 443 for HTTPS
+  frontend:
+    build: ./frontend
+    container_name: frontend
+    restart: unless-stopped
+    expose:
+      - "80"
+    networks:
+      - sql_net   
+# NGINX CONTAINER to serve the frontend with SSL, using self-signed certificates
+  nginx:
+    image: nginx:alpine
+    container_name: nginx
+    restart: unless-stopped
+    ports:
+      - "443:443"
+      - "80:80"
+    volumes:
+      - ./nginx.conf:/etc/nginx/conf.d/default.conf:ro
+    #  - ./nginx/certs:/etc/nginx/certs
+    depends_on:
+      - frontend
+      - backend
+    networks:
+      - sql_net
+
+volumes:
+  db_data: 
+
+networks:
+  sql_net:
+    driver: bridge

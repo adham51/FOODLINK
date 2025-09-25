@@ -1,6 +1,6 @@
 const request = require('express').Router();
 const db = require('../database/db_conection');
-const bcrypt = require('bcrypt');
+const bcrypt = require('bcryptjs');
 const { query } = require('express');
 const jwt = require('jsonwebtoken');
 

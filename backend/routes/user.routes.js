@@ -2,8 +2,8 @@ const user = require('express').Router();
 
 const db = require('../database/db_conection');
 
-const bcrypt = require('bcrypt');
-const { use } = require('bcrypt/promises');
+const bcrypt = require('bcryptjs');
+// const { use } = require('bcrypt/promises');
 
 const jwt = require('jsonwebtoken');
 

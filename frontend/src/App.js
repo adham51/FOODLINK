@@ -11,7 +11,6 @@ import LandingPage from "./components/Header.js/LandingPage";
 const App = () => {
   return (
     <div>
-
       <LandingPage></LandingPage>
     </div>
   );
