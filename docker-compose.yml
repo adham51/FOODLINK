@@ -5,8 +5,6 @@ services:
   db:
     image: mysql:8.0
     container_name: mysql_db
-    ports:
-      - "3306:3306"
     restart: unless-stopped
     environment:
       MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
@@ -17,6 +15,7 @@ services:
       - db_data:/var/lib/mysql
     networks:
       - sql_net
+
 # PHPMyAdmin for DB management, accessible on port 8080
   phpmyadmin:
     image: phpmyadmin/phpmyadmin
@@ -30,6 +29,7 @@ services:
       - db
     networks:
       - sql_net
+      
 # BACKEND CONTAINER with DB connection using environment variables from .env file
   backend:
     build: ./backend
@@ -53,7 +53,7 @@ services:
       - "80"
     networks:
       - sql_net   
-# NGINX CONTAINER to serve the frontend with SSL, using self-signed certificates
+# NGINX CONTAINER to serve the frontend with SSL, using Let's Encrypt certificates
   nginx:
     image: nginx:alpine
     container_name: nginx
@@ -63,12 +63,24 @@ services:
       - "80:80"
     volumes:
       - ./nginx.conf:/etc/nginx/conf.d/default.conf:ro
-    #  - ./nginx/certs:/etc/nginx/certs
+      - certbot_certs:/etc/letsencrypt:ro       # Mounts the certs from certbot
+      - certbot_www:/var/www/certbot:ro         # Mounts the webroot for certbot challenges
     depends_on:
       - frontend
       - backend
     networks:
       - sql_net
+
+  # CERTBOT CONTAINER - Gets and renews SSL certificates
+  certbot:
+    image: certbot/certbot
+    container_name: certbot
+    volumes:
+      - certbot_certs:/etc/letsencrypt            # Stores certificates
+      - certbot_www:/var/www/certbot              # Challenge files for domain verification
+    # This will run once to get certificate, then you can set up cron for renewal
+    command: certonly --webroot --webroot-path=/var/www/certbot --email arrow9496877adham@gmail.com --agree-tos --no-eff-email -d foodlink.shop -d www.foodlink.shop
+
 
 volumes:
   db_data: 
