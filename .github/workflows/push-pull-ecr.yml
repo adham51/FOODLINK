@@ -35,7 +35,7 @@ jobs:
           image: foodlink-backend:${{ github.sha }},foodlink-backend:latest
 
       - name: Build frontend image
-        run: docker-compose build frontend
+        run: docker compose build frontend
 
       - name: Push frontend image to ECR
         uses: jwalton/gh-ecr-push@v2
