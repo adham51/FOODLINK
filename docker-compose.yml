@@ -33,6 +33,7 @@ services:
 # BACKEND CONTAINER with DB connection using environment variables from .env file
   backend:
     build: ./backend
+    image: foodlink_backend:latest
     container_name: backend
     restart: unless-stopped
     env_file:
@@ -47,6 +48,7 @@ services:
 # FRONTEND CONTAINER SERVED STATICALLY BY NGINX so it listens on 80 for HTTP and 443 for HTTPS
   frontend:
     build: ./frontend
+    image: foodlink_frontend:latest
     container_name: frontend
     restart: unless-stopped
     expose:
