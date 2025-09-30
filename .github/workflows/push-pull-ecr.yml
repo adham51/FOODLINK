@@ -59,14 +59,22 @@ jobs:
           username: ${{ secrets.EC2_USERNAME }}
           key: ${{ secrets.EC2_SSH_KEY }}
           script: |
-            # Log in to ECR on EC2
-            aws ecr get-login-password --region eu-central-1 | docker login --username AWS --password-stdin ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.eu-central-1.amazonaws.com
-            # Pull images from ECR using commit SHA
-            docker pull ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.eu-central-1.amazonaws.com/foodlink-backend:${{ github.sha }}
-            docker pull ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.eu-central-1.amazonaws.com/foodlink-frontend:${{ github.sha }}
+            # Navigate to project directory
+            cd ~/foodlink
+            
+            # Login to ECR using IAM role (no credentials needed!)
+            aws ecr get-login-password --region eu-central-1 | docker login --username AWS --password-stdin 894059646318.dkr.ecr.eu-central-1.amazonaws.com
+            
+            # Pull new images with commit SHA
+            docker pull 894059646318.dkr.ecr.eu-central-1.amazonaws.com/foodlink-backend:${{ github.sha }}
+            docker pull 894059646318.dkr.ecr.eu-central-1.amazonaws.com/foodlink-frontend:${{ github.sha }}
+            
             # Update docker-compose-prod.yml with new image tags
             sed -i "s|foodlink-backend:[^ ]*|foodlink-backend:${{ github.sha }}|" docker-compose-prod.yml
             sed -i "s|foodlink-frontend:[^ ]*|foodlink-frontend:${{ github.sha }}|" docker-compose-prod.yml
-            # Stop and restart services using production compose file
-            docker-compose -f docker-compose-prod.yml down
-            docker-compose -f docker-compose-prod.yml up -d
+            
+            # Restart services with new images
+            docker compose -f docker-compose-prod.yml down
+            docker compose -f docker-compose-prod.yml up -d
+            
+            

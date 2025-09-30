@@ -8,7 +8,7 @@ export default function HeroSection() {
         <section id="home" className={styles.hero} style={{ backgroundImage: `url(${background})` }}>
             <div className={styles.heroOverlay}></div> {/* Overlay to darken background */}
             <div className={styles.heroContent}>
-                <span>We Connect Surplus Food with Those in Need - test</span> {/* Main headline */}
+                <span>We Connect Surplus Food with Those in Need - test2</span> {/* Main headline */}
                 <p className={styles.subheadline}>Become a Food-Linker: Save Food with a Tap!</p> {/* Subheadline */}
                 <div className={styles.buttonGroup}>
                     <Link to="/SignUpDonor" className={styles.link}>
