@@ -60,7 +60,7 @@ jobs:
           key: ${{ secrets.EC2_SSH_KEY }}
           script: |
             # Navigate to project directory
-            cd ~/foodlink
+            cd ~/FOODLINK
             
             # Login to ECR using IAM role (no credentials needed!)
             aws ecr get-login-password --region eu-central-1 | docker login --username AWS --password-stdin 894059646318.dkr.ecr.eu-central-1.amazonaws.com
@@ -69,12 +69,12 @@ jobs:
             docker pull 894059646318.dkr.ecr.eu-central-1.amazonaws.com/foodlink-backend:${{ github.sha }}
             docker pull 894059646318.dkr.ecr.eu-central-1.amazonaws.com/foodlink-frontend:${{ github.sha }}
             
-            # Update docker-compose-prod.yml with new image tags
+            # Update docker-compose-prod.yml with new image tags 
             sed -i "s|foodlink-backend:[^ ]*|foodlink-backend:${{ github.sha }}|" docker-compose-prod.yml
             sed -i "s|foodlink-frontend:[^ ]*|foodlink-frontend:${{ github.sha }}|" docker-compose-prod.yml
             
             # Restart services with new images
             docker compose -f docker-compose-prod.yml down
             docker compose -f docker-compose-prod.yml up -d
-            
+
             
