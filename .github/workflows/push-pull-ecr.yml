@@ -1,19 +1,21 @@
-name: Deploy to ECR
+name: CI/CD Pipeline
 on:
-  # Trigger the workflow on push events to the main branch
   push:
     branches: [main]
+  pull_request:
+    branches: [main]
+
+env:
+  ECR_REGISTRY: ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.eu-central-1.amazonaws.com
+
 jobs:
-  deploy:
-    name: Deploy to ECR
-    # Use the latest Ubuntu runner for compatibility with Docker and AWS CLI
+  build:
+    name: Build & Scan
     runs-on: ubuntu-latest
     steps:
-      # Check out the repository code to access docker-compose.yml and build contexts
       - name: Check out code
         uses: actions/checkout@v4
 
-            # IMPORTANT: Set up Buildx for caching
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
@@ -27,7 +29,6 @@ jobs:
       - name: Login to Amazon ECR
         uses: aws-actions/amazon-ecr-login@v2
 
-      # Build and push backend (with caching!)
       - name: Build and push backend
         uses: docker/build-push-action@v5
         with:
@@ -36,10 +37,9 @@ jobs:
           tags: |
             ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.eu-central-1.amazonaws.com/foodlink-backend:${{ github.sha }}
             ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.eu-central-1.amazonaws.com/foodlink-backend:latest
-          cache-from: type=gha  # ← GitHub Actions cache (THE MAGIC!)
+          cache-from: type=gha
           cache-to: type=gha,mode=max
 
-      # Build and push frontend (with caching!)
       - name: Build and push frontend
         uses: docker/build-push-action@v5
         with:
@@ -51,7 +51,39 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
-          # Deploy to EC2 by pulling images and restarting services
+      - name: Scan Backend image with Trivy
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.eu-central-1.amazonaws.com/foodlink-backend:${{ github.sha }}
+          format: 'table'
+          exit-code: '0'
+          severity: 'CRITICAL,HIGH'
+
+      - name: Scan Frontend image with Trivy
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.eu-central-1.amazonaws.com/foodlink-frontend:${{ github.sha }}
+          format: 'table'
+          exit-code: '0'
+          severity: 'CRITICAL,HIGH'
+
+      - name: Slack - Build Complete
+        if: always()
+        uses: slackapi/slack-github-action@v1
+        with:
+          payload: |
+            {
+              "text": "Build Status: ${{ job.status }}\nSecurity Scan: Completed\nCommit: ${{ github.sha }}\nAuthor: ${{ github.actor }}"
+            }
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+
+  deploy:
+    name: Deploy to Production
+    runs-on: ubuntu-latest
+    needs: build
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    steps:
       - name: Deploy to EC2
         uses: appleboy/ssh-action@v1
         with:
@@ -59,21 +91,40 @@ jobs:
           username: ${{ secrets.EC2_USERNAME }}
           key: ${{ secrets.EC2_SSH_KEY }}
           script: |
-            # Navigate to project directory
             cd ~/FOODLINK
             
-            # Login to ECR using IAM role (no credentials needed!)
             aws ecr get-login-password --region eu-central-1 | docker login --username AWS --password-stdin 894059646318.dkr.ecr.eu-central-1.amazonaws.com
             
-            # Pull new images with commit SHA
             docker pull 894059646318.dkr.ecr.eu-central-1.amazonaws.com/foodlink-backend:${{ github.sha }}
             docker pull 894059646318.dkr.ecr.eu-central-1.amazonaws.com/foodlink-frontend:${{ github.sha }}
             
-            # Update docker-compose-prod.yml with new image tags 
             sed -i "s|foodlink-backend:[^ ]*|foodlink-backend:${{ github.sha }}|" docker-compose-prod.yml
             sed -i "s|foodlink-frontend:[^ ]*|foodlink-frontend:${{ github.sha }}|" docker-compose-prod.yml
             
-            # Restart services with new images
             docker compose -f docker-compose-prod.yml down
             docker compose -f docker-compose-prod.yml up -d
-            
+
+      - name: Check website health
+        id: health
+        run: |
+          sleep 10
+          response=$(curl -s -o /dev/null -w "%{http_code}" https://foodlink.shop)
+          if [ "$response" -eq 200 ] || [ "$response" -eq 301 ] || [ "$response" -eq 302 ]; then
+            echo "health=Passed" >> $GITHUB_OUTPUT
+            echo "Website is healthy (HTTP $response)"
+          else
+            echo "health=Failed" >> $GITHUB_OUTPUT
+            echo "Website returned HTTP $response"
+            exit 1
+          fi
+
+      - name: Slack - Deployment Status
+        if: always()
+        uses: slackapi/slack-github-action@v1
+        with:
+          payload: |
+            {
+              "text": "Deployment Status: ${{ job.status }}\nHealth Check: ${{ steps.health.outputs.health || 'Skipped' }}\nCommit: ${{ github.sha }}\nSite: https://foodlink.shop"
+            }
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
