@@ -80,7 +80,6 @@ services:
     volumes:
       - certbot_certs:/etc/letsencrypt            # Stores certificates
       - certbot_www:/var/www/certbot              # Challenge files for domain verification
-    # This will run once to get certificate, then you can set up cron for renewal
     command: certonly --webroot --webroot-path=/var/www/certbot --email arrow9496877adham@gmail.com --agree-tos --non-interactive --keep-until-expiring --no-eff-email -d foodlink.shop -d www.foodlink.shop
 
 
